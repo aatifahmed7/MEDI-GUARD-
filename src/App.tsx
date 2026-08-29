@@ -318,13 +318,9 @@ export function App() {
     />;
   }
 
-  if (import.meta.env.DEV) console.info('[MediGuard route] portal selected', { role: authSession?.role, route: window.location.pathname });
-
   if (!isCaregiver && window.location.pathname.startsWith('/caretaker')) {
     window.history.replaceState({}, '', '/app/dashboard');
   }
-
-  if (import.meta.env.DEV) console.log('[MediGuard portal trace]', { firebaseUid: firebaseAuth.currentUser?.uid, sessionRole: authSession?.role, currentPath: window.location.pathname, portal: 'patient' });
 
   // Derive simulated time display string
   const simulatedTimeText = currentTime.toLocaleTimeString([], {

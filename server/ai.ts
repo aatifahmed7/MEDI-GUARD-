@@ -218,6 +218,30 @@ Return a JSON object:
   return fallback;
 }
 
+function generateContextualAdherenceReply(
+  userMessage: string,
+  patient: PatientProfile,
+  medicines: Medicine[],
+  metrics: AdherenceMetrics
+): string {
+  const lower = userMessage.toLowerCase();
+  const medListStr = medicines.length > 0 ? medicines.map((m) => `${m.name} (${m.dosage})`).join(', ') : 'prescribed medications';
+
+  if (lower.includes('miss') || lower.includes('forgot') || lower.includes('skip') || lower.includes('late')) {
+    return `Hello ${patient.name}! If you missed or delayed a scheduled dose:\n\n* **Take it as soon as you remember**, provided it is not close to your next scheduled dose.\n* **Never double up:** Do not take two doses at once to make up for a missed pill.\n* If it is already close to your next scheduled time, skip the missed dose and resume your regular routine.\n\n**Your Current Regimen:** ${medListStr}\n\n⚠️ *Always consult ${patient.doctorName} or your pharmacist if you are uncertain about specific medication intervals.*`;
+  }
+
+  if (lower.includes('food') || lower.includes('eat') || lower.includes('meal') || lower.includes('empty stomach')) {
+    return `Hello ${patient.name}! Here is food and timing guidance for your current medications:\n\n${medicines.map((m) => `* **${m.name} (${m.dosage})**: ${m.foodTiming || 'Take with water'} — *${m.instructions || 'As prescribed by physician'}*`).join('\n')}\n\nMaintaining consistent food timing promotes proper drug absorption and reduces gastrointestinal irritation.`;
+  }
+
+  if (lower.includes('afternoon') || lower.includes('morning') || lower.includes('evening') || lower.includes('night') || lower.includes('hi') || lower.includes('hello') || lower.includes('schedule') || lower.includes('time')) {
+    return `Good day ${patient.name}! I am actively monitoring your medication adherence.\n\n* **Overall Adherence:** ${metrics.overallScore}% (${metrics.riskLevel} Risk Level)\n* **Active Medications (${medicines.length}):** ${medListStr}\n\n${medicines.map((m) => `• **${m.name}**: Scheduled at ${m.reminderTimes.join(', ')} (${m.foodTiming || 'with water'})`).join('\n')}\n\nHow can I assist you with your routine, pill verification, or dosage reminders today?`;
+  }
+
+  return `Hello ${patient.name}! I am your MediGuard AI medication adherence companion.\n\nYou are managing ${medicines.length} active prescriptions (${medListStr}) with an adherence score of **${metrics.overallScore}%**.\n\n* Ensure all doses are taken on time and verified via barcode/QR scan.\n* Keep your caregiver sync enabled in Settings for automated safety alerts.\n\nFeel free to ask any questions regarding medication timing, missed doses, or routine optimization!`;
+}
+
 export async function chatWithAdherenceAssistant(
   history: { role: 'user' | 'assistant'; content: string }[],
   userMessage: string,
@@ -227,7 +251,7 @@ export async function chatWithAdherenceAssistant(
 ): Promise<string> {
   const ai = getAiClient();
   if (!ai) {
-    return `Hello ${patient.name}! I am your MediGuard AI medication adherence companion. You are currently taking ${medicines.length} prescribed medications with an adherence score of ${metrics.overallScore}%. Remember to take your scheduled doses with food as directed by your physician!`;
+    return generateContextualAdherenceReply(userMessage, patient, medicines, metrics);
   }
 
   const systemInstruction = `You are "MediGuard AI Assistant", an empathetic, highly knowledgeable medication adherence and patient support AI.
@@ -245,22 +269,32 @@ Guidelines:
 4. Keep answers friendly, professional, concise, and structured with bullet points where appropriate.
 5. Include a brief safety reminder when discussing medicine side-effects.`;
 
+  const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+
+  for (const turn of history.slice(-6)) {
+    if (turn.content && turn.content.trim()) {
+      contents.push({
+        role: turn.role === 'user' ? 'user' : 'model',
+        parts: [{ text: turn.content.trim() }],
+      });
+    }
+  }
+
+  contents.push({
+    role: 'user',
+    parts: [{ text: userMessage.trim() }],
+  });
+
   for (const model of [PRIMARY_MODEL, FALLBACK_MODEL]) {
     try {
-      const chat = ai.chats.create({
+      const response = await ai.models.generateContent({
         model,
+        contents,
         config: {
           systemInstruction,
         },
       });
 
-      for (const turn of history.slice(-6)) {
-        if (turn.role === 'user') {
-          await chat.sendMessage({ message: turn.content });
-        }
-      }
-
-      const response = await chat.sendMessage({ message: userMessage });
       if (response.text) {
         return response.text;
       }
@@ -269,5 +303,5 @@ Guidelines:
     }
   }
 
-  return 'I am currently processing your request. Please ensure you take your scheduled medications as prescribed by your doctor.';
+  return generateContextualAdherenceReply(userMessage, patient, medicines, metrics);
 }
