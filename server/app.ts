@@ -66,7 +66,7 @@ function firebaseAdminAuth() {
   if (firebaseAdminAuthInstance) return firebaseAdminAuthInstance;
   const projectId = firebaseAdminConfig.projectId;
   const clientEmail = firebaseAdminConfig.clientEmail;
-  const privateKey = firebaseAdminConfig.privateKey?.replace(/\\n/g, '\n');
+  const privateKey = firebaseAdminConfig.privateKey?.replace(/\\n/g, '\n').replace(/^"|"$/g, '').trim();
   try {
     const app = getAdminApps()[0] || initializeAdminApp({
       credential: projectId && clientEmail && privateKey
@@ -76,8 +76,8 @@ function firebaseAdminAuth() {
     });
     firebaseAdminAuthInstance = getAdminAuthService(app);
     return firebaseAdminAuthInstance;
-  } catch {
-    console.error('[MediGuard] Firebase Admin initialization failed. Check the server credential format.');
+  } catch (error) {
+    console.error('[MediGuard] Firebase Admin initialization failed:', error);
     return null;
   }
 }
