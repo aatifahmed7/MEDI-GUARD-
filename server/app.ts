@@ -735,7 +735,7 @@ export function createApp() {
 
     if (finalStatus === 'Missed' || finalStatus === 'Taken Late') {
       const patient = db.getPatient();
-      db.getLinksForPatient(patient.id).filter((link) => finalStatus === 'Missed' ? link.permissions.receive_missed_alerts : link.permissions.receive_delayed_alerts).forEach((link) => {
+      db.getLinksForPatient(patient.id).filter((link) => link.status === 'ACCEPTED' && (finalStatus === 'Missed' ? link.permissions.receive_missed_alerts : link.permissions.receive_delayed_alerts)).forEach((link) => {
         db.addCaregiverNotification({
           id: `cgn-${Date.now().toString(36)}-${link.caregiverUid}`,
           recipientUid: link.caregiverUid,
@@ -841,6 +841,42 @@ export function createApp() {
       createdAt: new Date().toISOString(),
       acknowledged: false,
     });
+
+    // Sync critical alerts to all accepted caregiver links
+    const syncAlertTypes = ['MISSED_DOSE', 'DELAYED_DOSE', 'HIGH_RISK_DETECTED', 'WRONG_MEDICINE', 'REFILL_NEEDED'];
+    if (syncAlertTypes.includes(newAlert.alertType)) {
+      const patient = db.getPatient();
+      db.getLinksForPatient(patient.id)
+        .filter((link) => link.status === 'ACCEPTED')
+        .filter((link) => {
+          if (newAlert.alertType === 'MISSED_DOSE') return link.permissions.receive_missed_alerts !== false;
+          if (newAlert.alertType === 'DELAYED_DOSE') return link.permissions.receive_delayed_alerts !== false;
+          return true;
+        })
+        .forEach((link) => {
+          // Avoid duplicate notifications for same alert
+          const existing = db.getAllCaregiverNotifications().find(
+            (n) => n.recipientUid === link.caregiverUid && n.alertId === newAlert.id
+          );
+          if (!existing) {
+            db.addCaregiverNotification({
+              id: `cgn-alert-${newAlert.id}-${link.caregiverUid}`,
+              recipientUid: link.caregiverUid,
+              patientId: patient.id,
+              title: newAlert.alertType === 'MISSED_DOSE' ? 'Missed medication' :
+                     newAlert.alertType === 'REFILL_NEEDED' ? 'Refill needed' :
+                     newAlert.alertType === 'WRONG_MEDICINE' ? '⚠️ Wrong medicine scanned' :
+                     'Patient alert',
+              message: newAlert.message,
+              alertType: newAlert.alertType as any,
+              alertId: newAlert.id,
+              isRead: false,
+              createdAt: new Date().toISOString(),
+            });
+          }
+        });
+    }
+
     res.status(201).json(newAlert);
   });
 

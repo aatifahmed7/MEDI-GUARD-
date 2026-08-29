@@ -126,6 +126,7 @@ export interface CaregiverNotification {
   isRead: boolean;
   createdAt: string;
   eventId?: string;
+  alertId?: string;
 }
 
 export interface CaretakerAccessCode {
