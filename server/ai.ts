@@ -21,6 +21,19 @@ function getAiClient(): GoogleGenAI | null {
   return aiClient;
 }
 
+const PRIMARY_MODEL = 'gemini-3.7-flash';
+const FALLBACK_MODEL = 'gemini-3.6-flash';
+
+function cleanJson(text: string): string {
+  let raw = text.trim();
+  if (raw.startsWith('```json')) {
+    raw = raw.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+  } else if (raw.startsWith('```')) {
+    raw = raw.replace(/^```\s*/, '').replace(/\s*```$/, '');
+  }
+  return raw.trim();
+}
+
 export async function generateAiAdherenceInsights(
   patient: PatientProfile,
   medicines: Medicine[],
@@ -56,8 +69,7 @@ export async function generateAiAdherenceInsights(
     return fallback;
   }
 
-  try {
-    const prompt = `You are the clinical adherence intelligence engine of "MediGuard AI".
+  const prompt = `You are the clinical adherence intelligence engine of "MediGuard AI".
 Analyze this patient's medication regimen and real adherence data:
 
 Patient Profile:
@@ -92,27 +104,30 @@ Please return a detailed JSON object with these keys:
 
 DO NOT change dosages or prescribe new drugs. Focus purely on adherence support, routine optimization, and safety.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.7-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-      },
-    });
+  for (const model of [PRIMARY_MODEL, FALLBACK_MODEL]) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+        },
+      });
 
-    if (response.text) {
-      const parsed = JSON.parse(response.text);
-      return {
-        clinicalSummary: parsed.clinicalSummary || fallback.clinicalSummary,
-        behavioralAnalysis: parsed.behavioralAnalysis || fallback.behavioralAnalysis,
-        interventionStrategy: parsed.interventionStrategy || fallback.interventionStrategy,
-        potentialRiskFactors: parsed.potentialRiskFactors || fallback.potentialRiskFactors,
-        caregiverActionItems: parsed.caregiverActionItems || fallback.caregiverActionItems,
-        disclaimer: parsed.disclaimer || fallback.disclaimer,
-      };
+      if (response.text) {
+        const parsed = JSON.parse(cleanJson(response.text));
+        return {
+          clinicalSummary: parsed.clinicalSummary || fallback.clinicalSummary,
+          behavioralAnalysis: parsed.behavioralAnalysis || fallback.behavioralAnalysis,
+          interventionStrategy: parsed.interventionStrategy || fallback.interventionStrategy,
+          potentialRiskFactors: parsed.potentialRiskFactors || fallback.potentialRiskFactors,
+          caregiverActionItems: parsed.caregiverActionItems || fallback.caregiverActionItems,
+          disclaimer: parsed.disclaimer || fallback.disclaimer,
+        };
+      }
+    } catch (err) {
+      console.warn(`Attempt with ${model} failed, trying fallback:`, err);
     }
-  } catch (err) {
-    console.error('Error generating AI adherence insights:', err);
   }
 
   return fallback;
@@ -161,8 +176,7 @@ export async function checkDrugInteractions(
     return fallback;
   }
 
-  try {
-    const prompt = `You are a clinical pharmacology AI assistant within MediGuard AI.
+  const prompt = `You are a clinical pharmacology AI assistant within MediGuard AI.
 Analyze the following active medicine list for potential drug-drug interactions, food timing optimizations, and safety guidelines:
 
 Active Medicines:
@@ -183,19 +197,22 @@ Return a JSON object:
   "disclaimer": "MediGuard AI drug interaction screening is for educational support. Consult your physician for clinical decisions."
 }`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.7-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-      },
-    });
+  for (const model of [PRIMARY_MODEL, FALLBACK_MODEL]) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+        },
+      });
 
-    if (response.text) {
-      return JSON.parse(response.text);
+      if (response.text) {
+        return JSON.parse(cleanJson(response.text));
+      }
+    } catch (err) {
+      console.warn(`Drug interaction check with ${model} failed, trying fallback:`, err);
     }
-  } catch (err) {
-    console.error('Error checking drug interactions:', err);
   }
 
   return fallback;
@@ -213,8 +230,7 @@ export async function chatWithAdherenceAssistant(
     return `Hello ${patient.name}! I am your MediGuard AI medication adherence companion. You are currently taking ${medicines.length} prescribed medications with an adherence score of ${metrics.overallScore}%. Remember to take your scheduled doses with food as directed by your physician!`;
   }
 
-  try {
-    const systemInstruction = `You are "MediGuard AI Assistant", an empathetic, highly knowledgeable medication adherence and patient support AI.
+  const systemInstruction = `You are "MediGuard AI Assistant", an empathetic, highly knowledgeable medication adherence and patient support AI.
 Patient context:
 - Patient Name: ${patient.name}, ${patient.age} years old
 - Conditions: ${patient.conditionSummary}
@@ -229,24 +245,29 @@ Guidelines:
 4. Keep answers friendly, professional, concise, and structured with bullet points where appropriate.
 5. Include a brief safety reminder when discussing medicine side-effects.`;
 
-    const chat = ai.chats.create({
-      model: 'gemini-3.7-flash',
-      config: {
-        systemInstruction,
-      },
-    });
+  for (const model of [PRIMARY_MODEL, FALLBACK_MODEL]) {
+    try {
+      const chat = ai.chats.create({
+        model,
+        config: {
+          systemInstruction,
+        },
+      });
 
-    // Send previous turns if any
-    for (const turn of history.slice(-6)) {
-      if (turn.role === 'user') {
-        await chat.sendMessage({ message: turn.content });
+      for (const turn of history.slice(-6)) {
+        if (turn.role === 'user') {
+          await chat.sendMessage({ message: turn.content });
+        }
       }
-    }
 
-    const response = await chat.sendMessage({ message: userMessage });
-    return response.text || 'I am here to support your medication routine. Please let me know how I can help!';
-  } catch (err) {
-    console.error('Error in chat assistant:', err);
-    return 'I am currently processing your request. Please ensure you take your scheduled medications as prescribed by your doctor.';
+      const response = await chat.sendMessage({ message: userMessage });
+      if (response.text) {
+        return response.text;
+      }
+    } catch (err) {
+      console.warn(`Chat with ${model} failed, trying fallback:`, err);
+    }
   }
+
+  return 'I am currently processing your request. Please ensure you take your scheduled medications as prescribed by your doctor.';
 }
