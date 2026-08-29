@@ -1,0 +1,6 @@
+{
+  "name": "MediGuard AI",
+  "description": "Smart Medicine Reminder and Predictive Adherence Tracking System with QR Verification and AI Risk Analysis",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

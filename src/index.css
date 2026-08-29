@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+.field-label { display: block; margin-bottom: 0.4rem; color: #334155; font-size: 0.75rem; font-weight: 700; }
+.input-wrap { display: flex; align-items: center; gap: 0.6rem; height: 3rem; padding: 0 0.85rem; border: 1px solid #cbd5e1; border-radius: 0.75rem; color: #64748b; transition: border-color 150ms, box-shadow 150ms; }
+.input-wrap:focus-within { border-color: #0f766e; box-shadow: 0 0 0 3px rgb(15 118 110 / 0.12); }
+.input-wrap svg { width: 1rem; height: 1rem; flex: 0 0 auto; }
+.input-wrap input { width: 100%; border: 0; outline: 0; background: transparent; color: #102033; font-size: 0.875rem; }
+.input-wrap button { color: #64748b; }
+.account-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1.25rem; box-shadow: 0 1px 2px rgb(15 23 42 / .04); }
+.account-card h3 { display: flex; align-items: center; gap: .5rem; margin-bottom: 1rem; color: #102033; font-size: .95rem; font-weight: 800; }
+.account-card h3 svg { width: 1.1rem; height: 1.1rem; color: #0f766e; }
+.account-select { width: 100%; height: 2.75rem; padding: 0 .75rem; border: 1px solid #cbd5e1; border-radius: .75rem; background: #fff; color: #102033; font-size: .875rem; }
+.toggle-row { display: flex; align-items: center; gap: .6rem; margin-top: .8rem; color: #475569; font-size: .8rem; font-weight: 600; }
+.primary-account-button, .secondary-account-button, .logout-account-button { display: inline-flex; align-items: center; gap: .45rem; border-radius: .75rem; padding: .65rem .85rem; font-size: .75rem; font-weight: 800; transition: background 150ms; }
+.primary-account-button { margin-top: 1rem; background: #0f766e; color: #fff; }
+.primary-account-button:hover { background: #0b615b; }
+.secondary-account-button { background: #f0fdfa; color: #0f766e; border: 1px solid #99f6e4; }
+.logout-account-button { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; }
+.primary-account-button svg, .secondary-account-button svg, .logout-account-button svg { width: .9rem; height: .9rem; }
+
+.shine-text {
+  background: linear-gradient(110deg, #ffffff 30%, #4fd1c5 50%, #ffffff 70%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shine 3s linear infinite;
+}
+.auth-stagger { opacity: 0; animation: auth-rise 650ms cubic-bezier(.22, 1, .36, 1) forwards; }
+.auth-stagger-1 { animation-delay: 100ms; }
+.auth-stagger-2 { animation-delay: 280ms; }
+.auth-stagger-3 { animation-delay: 440ms; }
+.auth-stagger-4 { animation-delay: 600ms; }
+@keyframes shine { 0% { background-position: 220% 0; } 100% { background-position: -220% 0; } }
+@keyframes auth-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+.auth-splash-content { animation: auth-rise 700ms cubic-bezier(.22, 1, .36, 1) both; }
+.auth-splash-logo { animation: splash-pop 900ms cubic-bezier(.22, 1, .36, 1) both; }
+.splash-dot { width: 5px; height: 5px; border-radius: 999px; background: #14b8a6; animation: splash-pulse 900ms ease-in-out infinite; }
+.splash-dot-delay-1 { animation-delay: 150ms; }
+.splash-dot-delay-2 { animation-delay: 300ms; }
+@keyframes splash-pop { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
+@keyframes splash-pulse { 0%, 100% { opacity: .35; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) {
+  .shine-text { animation: none; }
+  .auth-stagger { opacity: 1; animation: none; }
+}
+
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 9999px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.6);
+  }
+}
